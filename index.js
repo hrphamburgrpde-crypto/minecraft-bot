@@ -149,7 +149,6 @@ client.on("messageCreate", async (message) => {
         await updateStatus();
 
         const interval = setInterval(updateStatus, 10000);
-        setTimeout(() => clearInterval(interval), 60000);
         return;
     }
 });
