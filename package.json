@@ -9,10 +9,20 @@
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "discord.js": "^14.21.0",
-    "dotenv": "^17.0.0",
+    "discord.js": "^14.26.4",
+    "dotenv": "^17.4.2",
     "minecraft-protocol": "^1.66.2",
     "minecraft-server-util": "^5.4.4",
     "rcon-client": "^4.2.5"
-  }
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/hrphamburgrpde-crypto/minecraft-bot.git"
+  },
+  "keywords": [],
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/hrphamburgrpde-crypto/minecraft-bot/issues"
+  },
+  "homepage": "https://github.com/hrphamburgrpde-crypto/minecraft-bot#readme"
 }

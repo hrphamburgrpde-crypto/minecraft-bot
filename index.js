@@ -101,10 +101,57 @@ client.on("messageCreate", async (message) => {
     }
 
     if (message.content === "!ip") {
-        return message.channel.send(`🌐 **Server-IP:** \`${config.mcHost}:${config.mcPort}\``);
-    }
+    return message.channel.send(`🌐 **Server-IP:** \`${config.mcHost}:${config.mcPort}\``);
+}
 
-    if (message.content === "!status") {
+// HIER EINFÜGEN
+if (message.content === "!setup") {
+
+    const statusMessage = await message.channel.send("⏳ Live-Status wird eingerichtet...");
+
+    const updateLiveStatus = async () => {
+        const status = await getStatus();
+
+        let embed;
+
+        if (!status.online) {
+            embed = new EmbedBuilder()
+                .setColor("#ff3333")
+                .setTitle("🔴 PeterSMP Serverstatus")
+                .setDescription("Server offline");
+        } else {
+            embed = new EmbedBuilder()
+                .setColor("#00ff88")
+                .setTitle("🟢 PeterSMP Serverstatus")
+                .addFields(
+                    {
+                        name: "👥 Spieler",
+                        value: `${status.players}/${status.max}`,
+                        inline: true
+                    },
+                    {
+                        name: "📦 Version",
+                        value: status.version,
+                        inline: true
+                    }
+                )
+                .setTimestamp();
+        }
+
+        await statusMessage.edit({
+            embeds: [embed]
+        });
+    };
+
+    await updateLiveStatus();
+
+    setInterval(updateLiveStatus, 10000);
+
+    return;
+}
+
+// DEIN !status KOMMANDO
+if (message.content === "!status") {
         const statusMessage = await message.channel.send("⏳ Lade Serverstatus...");
 
         const updateStatus = async () => {
