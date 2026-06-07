@@ -15,6 +15,34 @@ client.once("clientReady", () => {
     console.log("Discord Bot gestartet");
 });
 
+function createStatusEmbed(status) {
+    if (status.online) {
+        return new EmbedBuilder()
+            .setColor("#00ff88")
+            .setTitle("🟢 PeterSMP Serverstatus")
+            .setDescription("Der Minecraft-Server ist aktuell **online**.")
+            .addFields(
+                { name: "👥 Spieler", value: `**${status.players}/${status.max}**`, inline: true },
+                { name: "📦 Version", value: `**${status.version || "Unbekannt"}**`, inline: true },
+                { name: "🌐 Adresse", value: `\`${config.mcHost}:${config.mcPort}\``, inline: false },
+                { name: "🔄 Aktualisierung", value: "Alle 10 Sekunden", inline: false }
+            )
+            .setFooter({ text: "PeterSMP • Live Status" })
+            .setTimestamp();
+    }
+
+    return new EmbedBuilder()
+        .setColor("#ff3333")
+        .setTitle("🔴 PeterSMP Serverstatus")
+        .setDescription("Der Minecraft-Server ist momentan **offline** oder nicht erreichbar.")
+        .addFields(
+            { name: "🌐 Adresse", value: `\`${config.mcHost}:${config.mcPort}\``, inline: false },
+            { name: "🔄 Aktualisierung", value: "Alle 10 Sekunden", inline: false }
+        )
+        .setFooter({ text: "PeterSMP • Live Status" })
+        .setTimestamp();
+}
+
 client.on("messageCreate", async (message) => {
     if (message.author.bot && !message.content.includes("!report ")) return;
 
@@ -22,6 +50,7 @@ client.on("messageCreate", async (message) => {
 
     if (fullText.includes("!report ")) {
         const playerMatch = fullText.match(/<([^>]+)>/);
+
         const reporter = playerMatch
             ? playerMatch[1]
             : (message.member?.displayName || message.author.username || "Unbekannt");
@@ -47,13 +76,32 @@ client.on("messageCreate", async (message) => {
             .setTimestamp();
 
         const buttons = new ActionRowBuilder().addComponents(
-            new ButtonBuilder().setCustomId(`handled_${reportedPlayer}`).setLabel("Erledigt").setStyle(ButtonStyle.Success),
-            new ButtonBuilder().setCustomId(`ignore_${reportedPlayer}`).setLabel("Ignorieren").setStyle(ButtonStyle.Secondary),
-            new ButtonBuilder().setCustomId(`kick_${reportedPlayer}`).setLabel("Kick-Befehl").setStyle(ButtonStyle.Primary),
-            new ButtonBuilder().setCustomId(`ban_${reportedPlayer}`).setLabel("Ban-Befehl").setStyle(ButtonStyle.Danger)
+            new ButtonBuilder()
+                .setCustomId(`handled_${reportedPlayer}`)
+                .setLabel("Erledigt")
+                .setStyle(ButtonStyle.Success),
+
+            new ButtonBuilder()
+                .setCustomId(`ignore_${reportedPlayer}`)
+                .setLabel("Ignorieren")
+                .setStyle(ButtonStyle.Secondary),
+
+            new ButtonBuilder()
+                .setCustomId(`kick_${reportedPlayer}`)
+                .setLabel("Kick-Befehl")
+                .setStyle(ButtonStyle.Primary),
+
+            new ButtonBuilder()
+                .setCustomId(`ban_${reportedPlayer}`)
+                .setLabel("Ban-Befehl")
+                .setStyle(ButtonStyle.Danger)
         );
 
-        await reportChannel.send({ embeds: [embed], components: [buttons] });
+        await reportChannel.send({
+            embeds: [embed],
+            components: [buttons]
+        });
+
         return;
     }
 
@@ -64,10 +112,12 @@ client.on("messageCreate", async (message) => {
 📋 **Befehle**
 
 \`!status\` - Minecraft Server Status
-\`!setup\` - Live Status erstellen
+\`!setup\` - Dauerhaften Live Status erstellen
 \`!ip\` - Server Adresse
 \`!help\` - Diese Hilfe
 \`!report SPIELER GRUND\` - Report erstellen
+\`/player_info\` - Spielerinfos anzeigen
+\`/broadcast\` - Server-Ankündigung senden
         `);
     }
 
@@ -80,36 +130,25 @@ client.on("messageCreate", async (message) => {
 
         const updateLiveStatus = async () => {
             const status = await getStatus();
+            const embed = createStatusEmbed(status);
 
-            const embed = status.online
-                ? new EmbedBuilder()
-                    .setColor("#00ff88")
-                    .setTitle("🟢 PeterSMP Serverstatus")
-                    .setDescription("Der Minecraft-Server ist aktuell **online**.")
-                    .addFields(
-                        { name: "👥 Spieler", value: `**${status.players}/${status.max}**`, inline: true },
-                        { name: "📦 Version", value: `**${status.version || "Unbekannt"}**`, inline: true },
-                        { name: "🌐 Adresse", value: `\`${config.mcHost}:${config.mcPort}\``, inline: false },
-                        { name: "🔄 Aktualisierung", value: "Alle 10 Sekunden", inline: false }
-                    )
-                    .setFooter({ text: "PeterSMP • Live Status" })
-                    .setTimestamp()
-                : new EmbedBuilder()
-                    .setColor("#ff3333")
-                    .setTitle("🔴 PeterSMP Serverstatus")
-                    .setDescription("Der Minecraft-Server ist momentan **offline** oder nicht erreichbar.")
-                    .addFields(
-                        { name: "🌐 Adresse", value: `\`${config.mcHost}:${config.mcPort}\``, inline: false },
-                        { name: "🔄 Aktualisierung", value: "Alle 10 Sekunden", inline: false }
-                    )
-                    .setFooter({ text: "PeterSMP • Live Status" })
-                    .setTimestamp();
-
-            await statusMessage.edit({ content: "", embeds: [embed] });
+            await statusMessage.edit({
+                content: "",
+                embeds: [embed]
+            });
         };
 
         await updateLiveStatus();
-        setInterval(updateLiveStatus, 10000);
+
+        const liveInterval = setInterval(async () => {
+            try {
+                await updateLiveStatus();
+            } catch (error) {
+                console.log("Live-Status gestoppt:", error.message);
+                clearInterval(liveInterval);
+            }
+        }, 10000);
+
         return;
     }
 
@@ -118,50 +157,65 @@ client.on("messageCreate", async (message) => {
 
         const updateStatus = async () => {
             const status = await getStatus();
+            const embed = createStatusEmbed(status);
 
-            const embed = status.online
-                ? new EmbedBuilder()
-                    .setColor("#00ff88")
-                    .setTitle("🟢 PeterSMP Serverstatus")
-                    .setDescription("Der Minecraft-Server ist aktuell **online**.")
-                    .addFields(
-                        { name: "👥 Spieler", value: `**${status.players}/${status.max}**`, inline: true },
-                        { name: "📦 Version", value: `**${status.version || "Unbekannt"}**`, inline: true },
-                        { name: "🌐 Adresse", value: `\`${config.mcHost}:${config.mcPort}\``, inline: false },
-                        { name: "🔄 Aktualisierung", value: "Alle 10 Sekunden", inline: false }
-                    )
-                    .setFooter({ text: "PeterSMP • Live Status" })
-                    .setTimestamp()
-                : new EmbedBuilder()
-                    .setColor("#ff3333")
-                    .setTitle("🔴 PeterSMP Serverstatus")
-                    .setDescription("Der Minecraft-Server ist momentan **offline** oder nicht erreichbar.")
-                    .addFields(
-                        { name: "🌐 Adresse", value: `\`${config.mcHost}:${config.mcPort}\``, inline: false },
-                        { name: "🔄 Aktualisierung", value: "Alle 10 Sekunden", inline: false }
-                    )
-                    .setFooter({ text: "PeterSMP • Live Status" })
-                    .setTimestamp();
-
-            await statusMessage.edit({ content: "", embeds: [embed] });
+            await statusMessage.edit({
+                content: "",
+                embeds: [embed]
+            });
         };
 
         await updateStatus();
 
-        const interval = setInterval(updateStatus, 10000);
+        const interval = setInterval(async () => {
+            try {
+                await updateStatus();
+            } catch (error) {
+                console.log("Status-Update gestoppt:", error.message);
+                clearInterval(interval);
+            }
+        }, 10000);
+
         return;
     }
 });
 
 client.on("interactionCreate", async (interaction) => {
     if (interaction.isChatInputCommand()) {
+        if (interaction.commandName === "broadcast") {
+            await interaction.deferReply({ ephemeral: true });
+
+            const text = interaction.options.getString("text");
+
+            const embed = new EmbedBuilder()
+                .setColor("#ffaa00")
+                .setTitle("📢 SERVER ANKÜNDIGUNG")
+                .setDescription(`## ${text}`)
+                .addFields({
+                    name: "👮 Gesendet von",
+                    value: interaction.user.username
+                })
+                .setFooter({ text: "PeterSMP • Broadcast System" })
+                .setTimestamp();
+
+            const channel = await client.channels.fetch(config.channelId);
+
+            await channel.send({
+                embeds: [embed]
+            });
+
+            return interaction.editReply("✅ Broadcast wurde gesendet.");
+        }
+
         if (interaction.commandName === "player_info") {
             await interaction.deferReply();
 
             const username = interaction.options.getString("username");
 
             try {
-                const mojangRes = await fetch(`https://api.mojang.com/users/profiles/minecraft/${encodeURIComponent(username)}`);
+                const mojangRes = await fetch(
+                    `https://api.mojang.com/users/profiles/minecraft/${encodeURIComponent(username)}`
+                );
 
                 if (!mojangRes.ok) {
                     return interaction.editReply(`❌ Spieler **${username}** wurde nicht gefunden.`);
@@ -175,9 +229,21 @@ client.on("interactionCreate", async (interaction) => {
                     .setTitle(`👤 Spielerinfo: ${profile.name}`)
                     .setThumbnail(`https://mc-heads.net/avatar/${profile.name}`)
                     .addFields(
-                        { name: "🟢 Status", value: status.online ? "🔴 Offline oder nicht sichtbar" : "⚪ Unbekannt", inline: true },
-                        { name: "🆔 UUID", value: `\`${profile.id}\``, inline: false },
-                        { name: "🌐 Server", value: `\`${config.mcHost}:${config.mcPort}\``, inline: false }
+                        {
+                            name: "🟢 Status",
+                            value: status.online ? "🔴 Offline oder nicht sichtbar" : "⚪ Unbekannt",
+                            inline: true
+                        },
+                        {
+                            name: "🆔 UUID",
+                            value: `\`${profile.id}\``,
+                            inline: false
+                        },
+                        {
+                            name: "🌐 Server",
+                            value: `\`${config.mcHost}:${config.mcPort}\``,
+                            inline: false
+                        }
                     )
                     .setFooter({ text: "PeterSMP • Player Info" })
                     .setTimestamp();
@@ -213,14 +279,18 @@ client.on("interactionCreate", async (interaction) => {
 
     if (action === "kick") {
         return interaction.reply({
-            content: `⚠️ Kick-Befehl für **${player}**\n\`\`\`\n/kick ${player} Report geprüft\n\`\`\``,
+            content:
+                `⚠️ Kick-Befehl für **${player}**\n` +
+                `\`\`\`\n/kick ${player} Report geprüft\n\`\`\``,
             ephemeral: true
         });
     }
 
     if (action === "ban") {
         return interaction.reply({
-            content: `⚠️ Ban-Befehl für **${player}**\n\`\`\`\n/ban ${player} Report geprüft\n\`\`\``,
+            content:
+                `⚠️ Ban-Befehl für **${player}**\n` +
+                `\`\`\`\n/ban ${player} Report geprüft\n\`\`\``,
             ephemeral: true
         });
     }
